@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="example" default="main" basedir=".">
+
+	<!-- 
+		Read properties from "default.properties" file and pass them 
+		to the build file. If you want to use a different properties
+		file run phing with -Dbuild.env=file_name
+	-->
+	<property name="build.env" value="default" />
+	<property file="${project.basedir}/build-properties/${build.env}.properties" />
+	<property name="build.dir" value="${project.basedir}/build/" />
+
+	<!--
+		Defining a custom action written in PHP (look at ./phing/example/CustomAction.php)
+	-->
+	<taskdef name="customaction" classname="phing.example.CustomAction" />
+
+	<!--
+		Default Phing target
+	-->
+	<target name="main">
+	    <echo message="+------------------------------------------+"/>
+	    <echo message="|                                          |"/>
+	    <echo message="| Building Project                         |"/>
+	    <echo message="|                                          |"/>
+	    <echo message="+------------------------------------------+"/>
+
+	    <!--
+			Run build targets - you can run each of them manualy. For example: "vendor/bin/phing custom-example"
+	    -->
+	    <phingcall target="create-build-directory"/>
+	    <phingcall target="database"/>
+	    <phingcall target="custom-example"/>
+	    
+	</target>
+
+	<target name="custom-example">
+		<customaction value="Hello World" />
+	</target>
+
+	<target name="create-build-directory">
+		<echo msg="Creating build directory" />
+
+		<mkdir dir="${build.dir}" />
+		<chmod file="${build.dir}" mode="0700" />
+	</target>
+
+	<target name="database">
+		<echo msg="Deploying database" />
+		<tstamp/>
+
+		<property name="build.dbdeploy.deployfile" value="${project.basedir}/build/deploy-db-${DSTAMP}${TSTAMP}.sql" />
+        <property name="build.dbdeploy.undofile" value="${project.basedir}/build/undo-db-${DSTAMP}${TSTAMP}.sql" />
+
+        <!--
+			Generate deploy and undo files
+        -->
+        <dbdeploy
+		  url="mysql:host=${db.host};dbname=${db.name}"
+		  userid="${db.user}"
+		  password="${db.pass}"
+		  dir="${project.basedir}/dbinit/delta/"
+		  outputfile="${build.dbdeploy.deployfile}"
+		  undooutputfile="${build.dbdeploy.undofile}" />
+
+		<!--
+			Insert deploy file
+		-->
+		<exec
+            command="mysql -h${db.host} -u${db.user} -p${db.pass} ${db.name} &lt; ${build.dbdeploy.deployfile}"
+            dir="${build.dir}"
+            checkreturn="true" />
+
+	</target>
+
+	<!--
+		Initial database build
+    -->
+	<target name="dbinit">
+		<echo msg="Initializing database" />
+
+		<exec
+            command="mysql -h${db.host} -u${db.user} -p${db.pass} &lt; dbinit/init.sql"
+            dir="${project.basedir}"
+            checkreturn="true" />
+	</target>
+
+</project>
